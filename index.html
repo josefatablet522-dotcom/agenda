@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mi App con Firebase</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 500px;
+      margin: 50px auto;
+      padding: 20px;
+      text-align: center;
+    }
+    input {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 20px;
+      background: #4285f4;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    #messages {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>App con Firebase</h1>
+  <p id="status">No iniciaste sesión</p>
+
+  <input type="email" id="email" placeholder="Correo electrónico" />
+  <input type="password" id="password" placeholder="Contraseña" />
+
+  <button onclick="register()">Registrar</button>
+  <button onclick="login()">Iniciar Sesión</button>
+  <button onclick="logout()">Cerrar Sesión</button>
+
+  <h2>Mensajes</h2>
+  <input type="text" id="messageInput" placeholder="Escribe un mensaje" />
+  <button onclick="addMessage()">Enviar</button>
+  <ul id="messageList"></ul>
+
+  <div id="messages"></div>
+
+  <!-- Paso 1: Incluir Firebase SDK -->
+  <script type="module">
+    // Importar Firebase SDK (versión modular)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      onSnapshot,
+      serverTimestamp,
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // 🔥 Reemplaza con tu configuración de Firebase
+    const firebaseConfig = {
+      apiKey: "TU_API_KEY",
+      authDomain: "TU_PROYECTO.firebaseapp.com",
+      projectId: "TU_PROYECTO",
+      storageBucket: "TU_PROYECTO.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:xxxxxxxxxxxxxx"
+    };
+
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getFirestore();
+
+    // Detectar cambios en la autenticación
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById("status").textContent = `Conectado: ${user.email}`;
+        loadMessages();
+      } else {
+        document.getElementById("status").textContent = "No iniciaste sesión";
+        document.getElementById("messageList").innerHTML = "";
+      }
+    });
+
+    // Funciones de autenticación
+    window.register = async () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        alert("Usuario registrado");
+      } catch (error) {
+        alert("Error: " + error.message);
+      }
+    };
+
+    window.login = async () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        document.getElementById("email").value = "";
+        document.getElementById("password").value = "";
+      } catch (error) {
+        alert("Error: " + error.message);
+      }
+    };
+
+    window.logout = async () => {
+      try {
+        await signOut(auth);
+        alert("Sesión cerrada");
+      } catch (error) {
+        alert("Error: " + error.message);
+      }
+    };
+
+    // Mensajes en Firestore
+    window.addMessage = async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        alert("Debes iniciar sesión");
+        return;
+      }
+      const text = document.getElementById("messageInput").value;
+      if (text.trim() === "") return;
+
+      try {
+        await addDoc(collection(db, "mensajes"), {
+          texto: text,
+          usuario: user.email,
+          timestamp: serverTimestamp(),
+        });
+        document.getElementById("messageInput").value = "";
+      } catch (error) {
+        alert("Error al enviar: " + error.message);
+      }
+    };
+
+    // Cargar mensajes en tiempo real
+    function loadMessages() {
+      const messagesRef = collection(db, "mensajes");
+      onSnapshot(messagesRef, (snapshot) => {
+        const list = document.getElementById("messageList");
+        list.innerHTML = "";
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          const li = document.createElement("li");
+          li.textContent = `${data.usuario}: ${data.texto}`;
+          list.appendChild(li);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
